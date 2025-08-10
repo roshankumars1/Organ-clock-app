@@ -1,35 +1,61 @@
-import React from "react";
-import { View, Text, Button, FlatList, StyleSheet } from "react-native";
+import React, { useEffect, useState } from "react";
+import { View, Text, FlatList, StyleSheet, Button, TouchableOpacity } from "react-native";
 import { useRouter } from "expo-router";
-
-type LogEntry = {
-    activity: string;
-    time: Date;
-    note: string;
-};
-
-const logs: LogEntry[] = [
-    { activity: "Eat", time: new Date(), note: "Breakfast" },
-    { activity: "Sleep", time: new Date(), note: "Nap" },
-];
+import { getLogEntries } from "./storage";
 
 export default function LogHistoryScreen() {
     const router = useRouter();
+    const [dateGroups, setDateGroups] = useState([]);
+
+    useEffect(() => {
+        const fetchLogs = async () => {
+            const storedLogs = await getLogEntries();
+
+            // Group logs by date
+            const grouped = storedLogs.reduce((acc, log) => {
+                const dateOnly = new Date(log.time).toLocaleDateString();
+                if (!acc[dateOnly]) {
+                    acc[dateOnly] = [];
+                }
+                acc[dateOnly].push(log);
+                return acc;
+            }, {});
+
+            // Convert object to sorted array [{date, logs}]
+            const groupedArray = Object.keys(grouped)
+                .map(date => ({ date, logs: grouped[date] }))
+                .sort((a, b) => new Date(b.date) - new Date(a.date));
+
+            setDateGroups(groupedArray);
+        };
+        fetchLogs();
+    }, []);
 
     return (
         <View style={{ flex: 1, padding: 20 }}>
             <Text style={{ fontSize: 18, marginBottom: 10 }}>Log History</Text>
-            <FlatList
-                data={logs}
-                keyExtractor={(_, i) => i.toString()}
-                renderItem={({ item }) => (
-                    <View style={styles.card}>
-                        <Text style={styles.activity}>{item.activity}</Text>
-                        <Text style={styles.time}>{item.time.toLocaleTimeString()}</Text>
-                        <Text style={styles.note}>{item.note}</Text>
-                    </View>
-                )}
-            />
+            {dateGroups.length === 0 ? (
+                <Text>No activity logs found.</Text>
+            ) : (
+                <FlatList
+                    data={dateGroups}
+                    keyExtractor={(item) => item.date}
+                    renderItem={({ item }) => (
+                        <TouchableOpacity
+                            style={styles.card}
+                            onPress={() => router.push({
+                                pathname: "/DailyLogScreen",
+                                params: { date: item.date }
+                            })}
+                        >
+                            <Text style={styles.dateText}>{item.date}</Text>
+                            <Text style={styles.countText}>
+                                {item.logs.length} activities
+                            </Text>
+                        </TouchableOpacity>
+                    )}
+                />
+            )}
             <Button title="Back" onPress={() => router.back()} />
         </View>
     );
@@ -46,7 +72,6 @@ const styles = StyleSheet.create({
         shadowOpacity: 0.1,
         shadowRadius: 4,
     },
-    activity: { fontSize: 18, fontWeight: "bold", color: "#007AFF" },
-    time: { fontSize: 16, color: "#333", marginTop: 4 },
-    note: { fontSize: 14, color: "#666", marginTop: 2 },
+    dateText: { fontSize: 18, fontWeight: "bold", color: "#007AFF" },
+    countText: { fontSize: 14, color: "#333", marginTop: 4 }
 });

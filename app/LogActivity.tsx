@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { View, Text, Button, TextInput, TouchableOpacity } from "react-native";
 import DateTimePicker, { DateTimePickerEvent } from "@react-native-community/datetimepicker";
 import { useRouter } from "expo-router";
+import { saveLogEntry } from "./storage";
 
 const activities = ["Eat", "Sleep", "Exercise", "Work"];
 
@@ -17,9 +18,17 @@ export default function LogActivityScreen() {
         if (time) setActivityTime(time);
     };
 
-    const handleSave = () => {
-        // Save logic here (e.g., to context or async storage)
-        router.back();
+    const handleSave = async () => {
+        if (!selectedActivity) return;
+        const entry = {
+            activity: selectedActivity,
+            time: activityTime.toISOString(),
+            note: activityNote,
+            id: Date.now().toString(),
+        };
+
+        await saveLogEntry(entry); // save persistently
+        router.back(); // navigate back after saving
     };
 
     return (
@@ -27,12 +36,25 @@ export default function LogActivityScreen() {
             <Text style={{ fontSize: 18, marginBottom: 10 }}>Select Activity</Text>
             {activities.map((act) => (
                 <TouchableOpacity key={act} onPress={() => setSelectedActivity(act)}>
-                    <Text style={{ padding: 8, backgroundColor: selectedActivity === act ? "#ddd" : "#fff" }}>{act}</Text>
+                    <Text
+                        style={{
+                            padding: 8,
+                            backgroundColor: selectedActivity === act ? "#ddd" : "#fff",
+                            marginVertical: 2,
+                            borderRadius: 4,
+                        }}
+                    >
+                        {act}
+                    </Text>
                 </TouchableOpacity>
             ))}
+
             <TouchableOpacity onPress={() => setShowTimePicker(true)}>
-                <Text style={{ marginVertical: 10 }}>Time: {activityTime.toLocaleTimeString()}</Text>
+                <Text style={{ marginVertical: 10 }}>
+                    Time: {activityTime.toLocaleTimeString()}
+                </Text>
             </TouchableOpacity>
+
             {showTimePicker && (
                 <DateTimePicker
                     value={activityTime}
@@ -42,12 +64,20 @@ export default function LogActivityScreen() {
                     onChange={handleTimeChange}
                 />
             )}
+
             <TextInput
                 placeholder={`Note for ${selectedActivity}`}
                 value={activityNote}
                 onChangeText={setActivityNote}
-                style={{ borderWidth: 1, borderColor: "#ccc", marginVertical: 10, padding: 8 }}
+                style={{
+                    borderWidth: 1,
+                    borderColor: "#ccc",
+                    marginVertical: 10,
+                    padding: 8,
+                    borderRadius: 4,
+                }}
             />
+
             <Button title="OK" onPress={handleSave} />
             <Button title="Cancel" onPress={() => router.back()} color="red" />
         </View>
